@@ -1,0 +1,72 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.10.0"> </script>
+
+    <!-- Place your code in the script tag below. You can also use an external .js file -->
+    <script>
+    'use strict';
+    
+      //initial tensor of length: nodes * fields
+      const nodeCount = 500000;
+      const immutableFields = {
+        "alphaMin": 0.001,
+        "alphaDecay": 1 - Math.pow(0.001, 1 / 300),
+        "alphaTarget": 0.0,
+        "velocityDecay": 0.6,
+        "strengthX": 1.0, //x force strength
+        "strengthY": 1.0, //x force strength
+      }
+      const mutableFields = {
+        "alpha": 1.0,
+        "x": 0.0, //final x
+        "y": 0.0, //final y
+        "vx": 0.0, //move x
+        "xz": 100.0, //target x
+        "vy": 0.0, //move y
+        "yz": 150.0, //target y
+      }
+
+
+      const tensors = {};
+      const variables = {};
+      const iFieldLkup = Object.keys(immutableFields).reduce(function(a, d, i) { a[i] = d; return a; }, {});
+      const mFieldLkup = Object.keys(mutableFields).reduce(function(a, d, i) { a[i] = d; return a; }, {});
+
+      console.time("init");
+      tf.tidy(function() {
+        for (let i = 0, fieldCount = Object.keys(immutableFields).length; i < fieldCount; i++) {
+          tensors[iFieldLkup[i]] = tf.tensor1d(new Float32Array(nodeCount).fill(immutableFields[iFieldLkup[i]].toFixed(4)), "float32");
+        }
+        for (let i = 0, fieldCount = Object.keys(mutableFields).length; i < fieldCount; i++) {
+          variables[mFieldLkup[i]] = tf.variable(tf.tensor1d(new Float32Array(nodeCount).fill(mutableFields[mFieldLkup[i]].toFixed(4)), "float32"));
+        }
+      console.timeEnd("init");
+
+      console.time("loop");
+        for (let i = 0; i < 50; i++) {
+          variables["alpha"].assign(variables["alpha"].add(tensors["alphaTarget"].sub(variables["alpha"]).mul(tensors["alphaDecay"])));
+          variables["vx"].assign(variables["vx"].add(variables["xz"].sub(variables["x"]).mul(tensors["strengthX"].mul(variables["alpha"]))));
+          variables["vy"].assign(variables["vy"].add(variables["yz"].sub(variables["y"]).mul(tensors["strengthY"].mul(variables["alpha"]))));
+          variables["vx"].assign(variables["vx"].mul(tensors["velocityDecay"]));
+          variables["vy"].assign(variables["vy"].mul(tensors["velocityDecay"]));
+          variables["x"].assign(variables["x"].add(variables["vx"]));
+          variables["y"].assign(variables["y"].add(variables["vy"]));
+
+        }
+      });
+      const c = console.timeEnd("loop");
+      variables["x"].print();
+      variables["y"].print();
+      
+      //for simulation function: process a tensor that updates x & y.
+      //not worrying about "tick" function for now. It will instead be a number if iterations when running the model
+
+      //recreate the x & y forces as a start
+      //I think it works
+    </script>
+  </head>
+
+  <body>
+  </body>
+</html>

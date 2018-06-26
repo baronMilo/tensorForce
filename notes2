@@ -1,0 +1,86 @@
+<html>
+  <head>
+    <!-- Load TensorFlow.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.10.0"> </script>
+
+    <!-- Place your code in the script tag below. You can also use an external .js file -->
+    <script>
+      //initial tensor of length: nodes * fields
+      const nodeCount = 100000;
+      const immutableFields = {
+        "alphaMin": 0.001,
+        "alphaDecay": 1 - Math.pow(0.001, 1 / 300),
+        "alphaTarget": 0.0,
+        "velocityDecay": 0.6,
+        "strengthX": 1.0, //x force strength
+        "strengthY": 1.0, //x force strength
+      }
+      const mutableFields = {
+        "alpha": 1.0,
+        "x": 0.0, //final x
+        "y": 0.0, //final y
+        "vx": 0.0, //move x
+        "xz": 100.0, //target x
+        "vy": 0.0, //move x
+        "yz": 100.0, //target x
+      }
+
+
+      //initialize tensors
+
+      const tensors = {};
+      const variables = {};
+      const iFieldLkup = Object.keys(immutableFields).reduce(function(a, d, i) { a[i] = d; return a; }, {});
+      const mFieldLkup = Object.keys(mutableFields).reduce(function(a, d, i) { a[i] = d; return a; }, {});
+
+      for (let i = 0, fieldCount = Object.keys(immutableFields).length; i < fieldCount; i++) {
+        tensors[iFieldLkup[i]] = tf.tensor1d(new Float32Array(nodeCount).fill(immutableFields[iFieldLkup[i]].toFixed(4)), "float32");
+      }
+      for (let i = 0, fieldCount = Object.keys(mutableFields).length; i < fieldCount; i++) {
+        variables[mFieldLkup[i]] = tf.variable(tf.tensor1d(new Float32Array(nodeCount).fill(mutableFields[mFieldLkup[i]].toFixed(4)), "float32"));
+      }
+      
+      const alphaTargetMinusAlpha = tf.variable(tf.zeros([nodeCount]));
+      const strengthxTimesCurrentAlpha = tf.variable(tf.zeros([nodeCount]));
+      const strengthyTimesCurrentAlpha = tf.variable(tf.zeros([nodeCount]));
+      const xzMinusX = tf.variable(tf.zeros([nodeCount]));
+      const yzMinusY = tf.variable(tf.zeros([nodeCount]));
+      const vxTimesVelocityDecay = tf.variable(tf.zeros([nodeCount]));
+      const vyTimesVelocityDecay = tf.variable(tf.zeros([nodeCount]));
+      const xUpdate = tf.variable(tf.zeros([nodeCount]));
+      const yUpdate = tf.variable(tf.zeros([nodeCount]));
+
+      for (let i = 0; i < 200; i++) {
+        alphaTargetMinusAlpha.assign(tensors["alphaTarget"].sub(variables["alpha"]));
+        variables["alpha"].assign(alphaTargetMinusAlpha.mul(tensors["alphaDecay"]));
+
+        strengthxTimesCurrentAlpha.assign(tensors["strengthX"].mul(variables["alpha"]));
+        strengthyTimesCurrentAlpha.assign(tensors["strengthY"].mul(variables["alpha"]));
+        xzMinusX.assign(variables["xz"].sub(variables["x"]));
+        yzMinusY.assign(variables["yz"].sub(variables["y"]));
+
+        variables["vx"].assign(variables["vx"].add(xzMinusX.mul(strengthxTimesCurrentAlpha)));
+        variables["vy"].assign(variables["vy"].add(yzMinusY.mul(strengthyTimesCurrentAlpha)));
+
+        vxTimesVelocityDecay.assign(variables["vx"].mul(tensors["velocityDecay"]));
+        vyTimesVelocityDecay.assign(variables["vy"].mul(tensors["velocityDecay"]));
+ 
+        variables["x"].assign(variables["x"].add(vxTimesVelocityDecay));
+        variables["y"].assign(variables["y"].add(vyTimesVelocityDecay));
+      }
+
+
+      variables["x"].print();
+      variables["y"].print();
+
+      //for simulation function: process a tensor that updates x & y.
+      //not worrying about "tick" function for now. It will instead be a number if iterations when running the model
+
+      //recreate the x & y forces as a start
+      //now change output to variables
+    </script>
+  </head>
+
+  <body>
+  </body>
+</html>
